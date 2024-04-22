@@ -30,3 +30,36 @@ shadow_div<- function(...){
   )
 }
 
+
+dt_proto <- function(x){
+  nr <- nrow(x)
+  
+  headerCallback <- c(
+    "function(thead, data, start, end, display){",
+    "  $('th', thead).css('border-left', '1px solid #0E2029');",
+    "  $('th', thead).css('border-right', '1px solid #0E2029');",
+    "  $('th', thead).css('border-top', '1px solid #0E2029');",
+    "  $('th', thead).css('border-bottom', '1px solid #0E2029');",
+    "}"
+  )
+  
+  x %>% 
+    datatable(
+      extensions = 'Buttons',
+      options = list(
+        dom = '<"top">rt<"bottom"B><"clear">', 
+        scrollX = TRUE, 
+        headerCallback = JS(headerCallback),
+        buttons = 
+          list(
+            "copy", 
+            "excel" 
+          ),
+        pageLength = nr + 1,
+        scrollY = '300px'
+      ), 
+      rownames = FALSE,
+      style = "bootstrap"
+    ) %>% 
+    formatStyle(names(x), border = "1px solid #0E2029")
+}

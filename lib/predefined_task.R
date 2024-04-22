@@ -1,5 +1,7 @@
 
 library(highcharter)
+library(DT)
+library(tidyr)
 
 source("lib/data_provider.R")
 source("lib/etc.R")
@@ -191,6 +193,31 @@ plot_option_suggest <- function(vars){
 }
 
 
+data_vis <- function(vars){
+  this_dat <- dat$main %>% 
+    filter(var_name %in% vars) %>% 
+    select(
+      Date = date, 
+      Frequency = freq, 
+      Variable = var_without_unit, 
+      Value = value, 
+      Unit = unit
+    ) %>% 
+    mutate(Value = round(Value, 2))
+  
+  nuf <- this_dat %>% distinct(Frequency, Unit) %>% nrow()
+  
+  if(nuf==1){
+    td <- this_dat %>% 
+      select(Date, Variable, Value) %>% 
+      pivot_wider(id_cols = Date, names_from = Variable, values_from = Value)
+  }else{
+    td <- this_dat
+  }
+  
+  td %>% 
+    dt_proto()
+}
 
 
 

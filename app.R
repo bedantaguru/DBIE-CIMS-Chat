@@ -1,6 +1,7 @@
 
 
 library(shiny)
+library(shinyjs)
 library(tidyverse)
 library(highcharter)
 library(shinyChatR)
@@ -26,8 +27,13 @@ dbWriteTable(conn, "chat_data", df, overwrite = TRUE)
 rm(df, db_file)
 
 ui <- fluidPage(
+  useShinyjs(),
+  extendShinyjs(
+    text = "shinyjs.closeWindow = function() { window.close(); }", 
+    functions = c("closeWindow")
+  ),
   enable_shadow_div(),
-  titlePanel(h4("DBIE Chat")),
+  titlePanel(h4("DBIE Chat"), windowTitle = "DBIE Chat"),
   chat_set_enter_as_send("main_chat"),
   verticalLayout(
     chat_ui("main_chat"),
@@ -36,7 +42,7 @@ ui <- fluidPage(
   )
 )
 
-server <- function(input, output, server) {
+server <- function(input, output, session) {
   
   rv <- reactiveValues(
     my_chats = character(0), 
@@ -70,13 +76,28 @@ server <- function(input, output, server) {
       rr <- response
       
       if(rr$task=="clear"){
+        
+        if(rv$tiggered_task=="none"){
+          rt <- "Nothing to clear!"
+        }else{
+          rt <- "Done!"
+        }
+        
         rv$tiggered_task <- "none"
         rv$tiggered_vars <- NULL
         
         rr <- list(
           task = "chat",
-          msg = "Done!"
+          msg = rt
         ) 
+      }
+      
+      if(rr$task=="exit"){
+        
+        try(dbDisconnect(conn))
+        js$closeWindow()
+        stopApp()
+         
       }
       
       if(rr$task=="plot"){
@@ -91,12 +112,44 @@ server <- function(input, output, server) {
         ) 
       }
       
+      
+      if(rr$task=="data"){
+        
+        rv$tiggered_task <- "data"
+        
+        rv$tiggered_vars <- rr$vars
+        
+        rr <- list(
+          task = "chat",
+          msg = "Done!"
+        ) 
+      }
+      
+      if(rr$task=="analysis"){
+        
+        rv$tiggered_task <- "none"
+        
+        rv$tiggered_vars <- rr$vars
+        
+        rr <- list(
+          task = "chat",
+          msg = "I am yet to learn this!"
+        ) 
+      }
+      
+      
+      
       if(rr$task == "chat" & is.character(rr$msg)){
         df <- data.frame(rowid = as.numeric(Sys.time()),
                          user = chat_name_tag,
                          text = rr$msg,
                          time = substr(as.character(Sys.time()), 1, 19))
-        dbWriteTable(conn, "chat_data", df, append = TRUE)
+        tryCatch(
+          dbWriteTable(conn, "chat_data", df, append = TRUE), 
+          error = function(e){
+            NULL
+          }
+        )
       }
       
     }
@@ -108,7 +161,7 @@ server <- function(input, output, server) {
     switch(
       rv$tiggered_task,
       plot = shadow_div(highchartOutput("highchart_plot")),
-      data = shadow_div(dataTableOutput("DT_out")),
+      data = shadow_div(DTOutput("DT_out")),
       div()
     )
     
@@ -121,9 +174,21 @@ server <- function(input, output, server) {
     }
   })
   
-  output$DT_out <- renderDataTable({
-    iris[seq(10),]
+  output$DT_out <- renderDT({
+    if(rv$tiggered_task=="data"){
+      data_vis(rv$tiggered_vars)
+    }
   })
+  
+  session$onSessionEnded(function() {
+    try(
+      suppressWarnings(
+        dbDisconnect(conn)
+      )
+    )
+    stopApp()
+  })
+  
   
 }
 

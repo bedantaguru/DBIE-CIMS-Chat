@@ -11,6 +11,19 @@ qry_persistence_info <- new.env()
 # qry <- "what was the food credit & IIP for march 18?"
 
 qry_task_predictor <- function(vars, time, pre_task){
+  
+  predefined_tasks <- names(qry_predefined_tasks())
+  
+  # specific case for exit
+  if(pre_task=="exit"){
+    return(
+      list(
+        type = pre_task,
+        vars = NULL
+      )
+    )
+  }
+  
   if(length(vars)>0 & length(time)>0){
     return(
       list(
@@ -43,7 +56,7 @@ qry_task_predictor <- function(vars, time, pre_task){
       length(time)==0 & 
       length(qry_persistence_info$selected_time)>0
     ) &
-    !(pre_task %in% c("plot","data","analysis")) &
+    !(pre_task %in% predefined_tasks) &
     length(vars)>0
   ){
     return(
@@ -61,7 +74,7 @@ qry_task_predictor <- function(vars, time, pre_task){
       length(vars)>0 | 
       length(qry_persistence_info$selected_vars)>0
     ) &  
-    (pre_task %in% c("plot","data","analysis","clear"))
+    (pre_task %in% predefined_tasks)
   ){
     if(length(vars)>0){
       v <- vars
@@ -195,30 +208,22 @@ qry_model <- function(qry){
     qry_persistence_info$selected_time <- ask_time
   }
   
+  
+  
+  # since all predefined tasks are now of routing through single qry_pass_var
+  borad_task_type <- what_task$type
+  if(what_task$type %in% names(qry_predefined_tasks())){
+    borad_task_type <- "predefined_tasks"
+  }
+  
   # task - 1
   # number picker (i,j)
   switch(
-    what_task$type,
+    borad_task_type,
     number_picker = qry_number_picker(
       vars = what_task$vars, 
       time = what_task$time),
-    plot = qry_pass_var(
-      task = what_task$type,
-      vars = what_task$vars
-    ),
-    data = qry_pass_var(
-      task = what_task$type,
-      vars = what_task$vars
-    ),
-    analysis = qry_pass_var(
-      task = what_task$type,
-      vars = what_task$vars
-    ),
-    clear = qry_pass_var(
-      task = what_task$type,
-      vars = what_task$vars
-    ),
-    exit = qry_pass_var(
+    predefined_tasks = qry_pass_var(
       task = what_task$type,
       vars = what_task$vars
     ),
@@ -397,41 +402,9 @@ qry_predefined_tasks <- function(qry){
     if(task!="unknown") break()
   }
   
-  
-  # c_tag <- "clear|clean|erase|remove|hide"
-  
-  if(task=="unknown" & str_detect(qry, l_tags$clear)){
-    task = "clear"
-  }
-  
-  # p_tag <- "plot|chart|graph|visual|diagram"
-  
-  if(task=="unknown" & str_detect(qry, l_tags$plot)){
-    task = "plot"
-  }
-  
-  # d_tag <- "show|display|data|download|series"
-  
-  if(task=="unknown" & str_detect(qry,l_tags$data)){
-    task = "data"
-  }
-  
-  a_tag <- "analy|stat|summary"
-  
-  if(task=="unknown" & str_detect(qry,a_tag)){
-    task = "analysis"
-  }
-  
-  e_tag <- "bye|exit|close|terminate"
-  
-  if(task=="unknown" & str_detect(qry,e_tag)){
-    task = "exit"
-  }
-  
-  
   list(
     task = task,
-    tags = paste0(c(c_tag, p_tag,d_tag,a_tag, e_tag), collapse = "|")
+    tags = l_tags %>% unlist() %>% paste0(collapse = "|")
   )
 }
 
